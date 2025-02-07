@@ -833,17 +833,17 @@ int main(int argc, char* argv[]) {
                 renderText("YOU LOST!", 140, 362, white, renderer, font);
             }
             else{
-                SDL_SetRenderDrawColor(renderer, 0, 255, 0, 255);
+                SDL_SetRenderDrawColor(renderer, 255, 0, 0, 255);
                 SDL_Rect rRect = {700, 355, 200, 40};
                 SDL_RenderFillRect(renderer, &rRect);
 
-                SDL_SetRenderDrawColor(renderer, 255, 0, 0, 255);
+                SDL_SetRenderDrawColor(renderer, 0, 255, 0, 255);
                 SDL_Rect lRect = {100, 355, 200, 40};
                 SDL_RenderFillRect(renderer, &lRect);
 
                 SDL_Color white = {255, 255, 255, 255};
-                renderText("YOU WON!", 740, 362, white, renderer, font);
-                renderText("YOU LOST!", 140, 362, white, renderer, font);
+                renderText("YOU LOST!", 740, 362, white, renderer, font);
+                renderText("YOU WON!", 140, 362, white, renderer, font);
             }
 
             Mix_PlayChannel(-1, winSound, 0);
