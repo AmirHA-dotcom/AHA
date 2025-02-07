@@ -29,7 +29,7 @@ int lcolorSelect = 1;
 int bred = 0, bgreen = 255, bblue = 0;
 int ballColor = 1;
 int x3 = 490;
-int y3 = 100;
+int y3 = 500;
 int mhight = 75;
 int mred = 255, mgreen = 255, mblue = 0;
 int vm = speed / 2;
@@ -492,7 +492,7 @@ int main(int argc, char* argv[]) {
                     }
                 }
 
-                if (event.key.keysym.sym == SDLK_ESCAPE && !menu){
+                if (event.key.keysym.sym == SDLK_ESCAPE && !menu && !win){
                     paused = true;
                     menu = false;
                     game = false;
@@ -699,10 +699,11 @@ int main(int argc, char* argv[]) {
             }
 
             if (hard) {
-                hight = 100;
+                hight = 75;
                 radius = 15;
                 speed = 10;
                 yourSpeed = 15;
+                mhight = 75;
                 vx = (vx > 0) ? speed : -speed;
                 vy = (vy > 0) ? speed : -speed;
                 vm = (vm > 0) ? speed : -speed;
@@ -710,10 +711,11 @@ int main(int argc, char* argv[]) {
             }
 
             if (killingYou) {
-                hight = 70;
+                hight = 75;
                 radius = 10;
                 speed = 10;
                 yourSpeed = 15;
+                mhight = 100;
                 vx = (vx > 0) ? speed : -speed;
                 vy = (vy > 0) ? speed : -speed;
                 vm = (vm > 0) ? speed : -speed;
