@@ -1,0 +1,865 @@
+#include <iostream>
+#include <SDL2/SDL.h>
+#include <SDL2/SDL_ttf.h>
+#include <SDL2/SDL_image.h>
+#include <SDL2/SDL_mixer.h>
+
+using namespace std;
+
+// global variables
+int hight = 100;
+int width = 20;
+int x1 = 0;
+int y1 = 350;
+int x2 = 980;
+int y2 = 350;
+int yourSpeed = 5;
+int ballx = 490;
+int bally = 100;
+int speed = 5;
+int vx = speed;
+int vy  = speed;
+int radius = 20;
+int lscore = 0;
+int rscore = 0;
+int lred = 255, lgreen = 0, lblue = 0;
+int rred = 0, rgreen = 0, rblue = 255;
+int rcolorSelect = 1;
+int lcolorSelect = 1;
+int bred = 0, bgreen = 255, bblue = 0;
+int ballColor = 1;
+int x3 = 490;
+int y3 = 100;
+int mhight = 75;
+int mred = 255, mgreen = 255, mblue = 0;
+int vm = speed / 2;
+
+// draw ball
+void drawBall(SDL_Renderer* renderer, int x, int y, int radius)
+{
+    SDL_SetRenderDrawColor(renderer, bred, bgreen, bblue, 255);
+    for (int w = 0; w < radius * 2; w++)
+    {
+        for (int h = 0; h < radius * 2; h++)
+        {
+            int dx = radius - w;
+            int dy = radius - h;
+            if ((dx * dx + dy * dy) <= (radius * radius))
+            {
+                SDL_RenderDrawPoint(renderer, x + dx, y + dy);
+            }
+        }
+    }
+}
+
+// draw left paddle
+void left(SDL_Renderer* renderer){
+    SDL_SetRenderDrawColor(renderer, lred, lgreen, lblue, 255);
+    SDL_Rect rect = {x1, y1, width, hight};
+    SDL_RenderFillRect(renderer, &rect);
+}
+
+//draw right paddle
+void right(SDL_Renderer* renderer){
+    SDL_SetRenderDrawColor(renderer, rred, rgreen, rblue, 255);
+    SDL_Rect rect = {x2, y2, width, hight};
+    SDL_RenderFillRect(renderer, &rect);
+}
+
+//draw middle paddle
+void middle(SDL_Renderer* renderer){
+    SDL_SetRenderDrawColor(renderer, mred, mgreen, mblue, 255);
+    SDL_Rect rect = {x3, y3, width, mhight};
+    SDL_RenderFillRect(renderer, &rect);
+
+    y3 += vm;
+
+    if (y3 <= 0 || y3 + mhight >= 750){
+        vm = -vm;
+    }
+}
+
+// ball logic
+void ball(SDL_Renderer* renderer, Mix_Chunk* hitSound, Mix_Chunk* bounceSound) {
+
+    SDL_SetRenderDrawColor(renderer, bred, bgreen, bblue, 255);
+
+    drawBall(renderer, ballx, bally, radius);
+
+    ballx += vx;
+    bally += vy;
+
+    if (bally <= 15 || bally + radius >= 750) {
+        vy = -vy;
+        Mix_PlayChannel(-1, bounceSound, 0);
+    }
+
+    float nextX = ballx + vx;
+    float nextY = bally + vy;
+
+    if (nextX - radius <= x1 + width && nextY + radius >= y1 && nextY - radius <= y1 + hight) {
+        if (nextY >= y1 && nextY <= y1 + hight) {
+            vx = -vx;
+        } else {
+            vy = -vy;
+        }
+        Mix_PlayChannel(-1, bounceSound, 0);
+
+        ballx = x1 + width + radius;
+    }
+
+    if (nextX + radius >= x2 && nextY + radius >= y2 && nextY - radius <= y2 + hight) {
+        if (nextY >= y2 && nextY <= y2 + hight) {
+            vx = -vx;
+        } else {
+            vy = -vy;
+        }
+        Mix_PlayChannel(-1, bounceSound, 0);
+
+        ballx = x2 - radius;
+    }
+
+    if (ballx + radius >= x3 && ballx - radius <= x3 + width && bally + radius >= y3 && bally - radius <= y3 + mhight) {
+        vx = -vx;
+        Mix_PlayChannel(-1, bounceSound, 0);
+    }
+
+
+
+    if (ballx < 0) {
+        ballx = 500;
+        bally = 400;
+        vx = -vx;
+        rscore++;
+        Mix_PlayChannel(-1, hitSound, 0);
+    }
+
+    if (ballx > 1000) {
+        ballx = 500;
+        bally = 400;
+        vx = -vx;
+        lscore++;
+        Mix_PlayChannel(-1, hitSound, 0);
+    }
+}
+
+// texts
+void renderText(const char* text, int x, int y, SDL_Color color, SDL_Renderer* renderer, TTF_Font* font) {
+    SDL_Surface* surface = TTF_RenderText_Solid(font, text, color);
+    SDL_Texture* texture = SDL_CreateTextureFromSurface(renderer, surface);
+
+    SDL_Rect textRect = {x, y, surface->w, surface->h};
+    SDL_RenderCopy(renderer, texture, nullptr, &textRect);
+
+    SDL_FreeSurface(surface);
+    SDL_DestroyTexture(texture);
+}
+
+// icon
+void setWindowIcon(SDL_Window* window) {
+    std::string path = "C://Users//amirh//Pictures//DALL·E 2025-02-07 15.43.40 - A simple 2D icon for a Pong-style game. The icon features a black background with a red paddle on the left, a blue paddle on the right, and a green ba.webp";
+    SDL_Surface *icon = IMG_Load(path.c_str()); // Use SDL_image to load the image
+    if (!icon) {
+        std::cerr << "Failed to load icon from: " << path << " - " << IMG_GetError() << std::endl;
+        return;
+    }
+    SDL_SetWindowIcon(window, icon);
+    SDL_FreeSurface(icon);
+}
+int main(int argc, char* argv[]) {
+
+    //initializing SDL
+    if (SDL_Init(SDL_INIT_VIDEO) < 0) {
+        cerr << "ERROR!\n" << SDL_GetError();
+        return -1;
+    }
+
+    //initializing window
+    SDL_Window *window = SDL_CreateWindow("MY FIRST GAME", SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, 1000, 750,
+                                          SDL_WINDOW_SHOWN);
+    if (!window) {
+        cerr << "Window ERROR\n" << SDL_GetError();
+        SDL_Quit();
+        return -1;
+    }
+    setWindowIcon(window);
+
+    //initializing renderer
+    SDL_Renderer *renderer = SDL_CreateRenderer(window, -1, SDL_RENDERER_ACCELERATED);
+    if (!renderer) {
+        cerr << "renderer ERROR" << SDL_GetError();
+        SDL_DestroyWindow(window);
+        SDL_Quit();
+        return -1;
+    }
+
+    // Initialize SDL_image
+    if (!(IMG_Init(IMG_INIT_PNG) & IMG_INIT_PNG)) {
+        cerr << "Failed to initialize SDL_image: " << IMG_GetError() << endl;
+        SDL_Quit();
+        return -1;
+    }
+
+    // Initialize SDL_ttf
+    if (TTF_Init() != 0) {
+        std::cerr << "SDL_ttf Initialization Error: " << TTF_GetError() << std::endl;
+        SDL_Quit();
+        return 1;
+    }
+
+    // Load a font
+    TTF_Font* font = TTF_OpenFont("E://FONTS//arial.ttf", 24); // Adjust font size
+    if (!font) {
+        std::cerr << "Font Load Error: " << TTF_GetError() << std::endl;
+        SDL_DestroyRenderer(renderer);
+        SDL_DestroyWindow(window);
+        TTF_Quit();
+        SDL_Quit();
+        return 1;
+    }
+
+    // Initialize SDL_mixer
+    if (Mix_OpenAudio(44100, MIX_DEFAULT_FORMAT, 2, 2048) < 0) {
+        cerr << "SDL_mixer Initialization Error: " << Mix_GetError() << endl;
+        return -1;
+    }
+
+    Mix_Chunk* hitSound = Mix_LoadWAV("D://SOUND_EFFECTS//mixkit-winning-a-coin-video-game-2069.wav");
+    if (!hitSound) {
+        cerr << "Failed to load sound: " << Mix_GetError() << endl;
+        return -1;
+    }
+
+    Mix_Chunk* winSound = Mix_LoadWAV("D://SOUND_EFFECTS//mixkit-game-level-completed-2059.wav");
+    if (!winSound) {
+        cerr << "Failed to load sound: " << Mix_GetError() << endl;
+        return -1;
+    }
+
+    Mix_Chunk* bounceSound = Mix_LoadWAV("D://SOUND_EFFECTS//mixkit-ball-bouncing-in-the-ground-2077.wav");
+    if (!bounceSound) {
+        cerr << "Failed to load sound: " << Mix_GetError() << endl;
+        return -1;
+    }
+
+    Mix_Chunk* clickSound = Mix_LoadWAV("D://SOUND_EFFECTS//mixkit-select-click-1109.wav");
+    if (!bounceSound) {
+        cerr << "Failed to load sound: " << Mix_GetError() << endl;
+        return -1;
+    }
+
+    Mix_Music* menuMusic = Mix_LoadMUS("D://SOUND_EFFECTS//mixkit-basketball-training-349.mp3");
+    if (!menuMusic) {
+        cerr << "Failed to load menu music: " << Mix_GetError() << endl;
+        return -1;
+    }
+
+
+    SDL_SetRenderDrawColor(renderer,0,0,0,255);
+    SDL_RenderClear(renderer);
+    SDL_RenderPresent(renderer);
+
+    // variables
+    bool running = true;
+    SDL_Event event;
+    bool game = false;
+    bool menu = true;
+    bool easy = false;
+    bool medium = false;
+    bool hard = false;
+    bool killingYou = false;
+    bool paused = false;
+    bool win = false;
+
+    // game loop
+    while (running) {
+        while (SDL_PollEvent(&event)) {
+            if (event.type == SDL_QUIT) {
+                running = false;
+            }//nothing happens
+            if (event.type == SDL_KEYDOWN){
+
+                if (event.key.keysym.sym == SDLK_RETURN && win){
+                    win = false;
+                    menu = true;
+                    lscore = 0;
+                    rscore = 0;
+                    ballx = 490;
+                    bally = 100;
+                }
+                // changing colors
+                if (event.key.keysym.sym == SDLK_SPACE && menu) {
+                    if (ballColor > 10){
+                        ballColor = 1;
+                    }
+                    else{
+                        ballColor++;
+                    }
+                    switch (ballColor) {
+                        case 1:
+                            bred = 0; bgreen = 0; bblue = 255;
+                            break;
+                        case 2:
+                            bred = 255; bgreen = 0; bblue = 0;
+                            break;
+                        case 3:
+                            bred = 0; bgreen = 255; bblue = 0;
+                            break;
+                        case 4:
+                            bred = 255; bgreen = 255; bblue = 0;
+                            break;
+                        case 5:
+                            bred = 0; bgreen = 255; bblue = 255;
+                            break;
+                        case 6:
+                            bred = 255; bgreen = 0; bblue = 255;
+                            break;
+                        case 7:
+                            bred = 255; bgreen = 165; bblue = 0;
+                            break;
+                        case 8:
+                            bred = 128; bgreen = 0; bblue = 128;
+                            break;
+                        case 9:
+                            bred = 255; bgreen = 105; bblue = 180;
+                            break;
+                        case 10:
+                            bred = 50; bgreen = 205; bblue = 50;
+                            break;
+                    }
+                }
+
+                if (event.key.keysym.sym == SDLK_RIGHT && menu) {
+                    if (rcolorSelect > 10){
+                        rcolorSelect = 1;
+                    }
+                    else{
+                        rcolorSelect++;
+                    }
+                    switch (rcolorSelect) {
+                        case 1:
+                            rred = 0; rgreen = 0; rblue = 255;
+                            break;
+                        case 2:
+                            rred = 255; rgreen = 0; rblue = 0;
+                            break;
+                        case 3:
+                            rred = 0; rgreen = 255; rblue = 0;
+                            break;
+                        case 4:
+                            rred = 255; rgreen = 255; rblue = 0;
+                            break;
+                        case 5:
+                            rred = 0; rgreen = 255; rblue = 255;
+                            break;
+                        case 6:
+                            rred = 255; rgreen = 0; rblue = 255;
+                            break;
+                        case 7:
+                            rred = 255; rgreen = 165; rblue = 0;
+                            break;
+                        case 8:
+                            rred = 128; rgreen = 0; rblue = 128;
+                            break;
+                        case 9:
+                            rred = 255; rgreen = 105; rblue = 180;
+                            break;
+                        case 10:
+                            rred = 50; rgreen = 205; rblue = 50;
+                            break;
+                    }
+                }
+
+                if (event.key.keysym.sym == SDLK_LEFT && menu) {
+                    if (rcolorSelect < 1){
+                        rcolorSelect = 10;
+                    }
+                    else{
+                        rcolorSelect--;
+                    }
+                    switch (rcolorSelect) {
+                        case 1:
+                            rred = 0; rgreen = 0; rblue = 255;
+                            break;
+                        case 2:
+                            rred = 255; rgreen = 0; rblue = 0;
+                            break;
+                        case 3:
+                            rred = 0; rgreen = 255; rblue = 0;
+                            break;
+                        case 4:
+                            rred = 255; rgreen = 255; rblue = 0;
+                            break;
+                        case 5:
+                            rred = 0; rgreen = 255; rblue = 255;
+                            break;
+                        case 6:
+                            rred = 255; rgreen = 0; rblue = 255;
+                            break;
+                        case 7:
+                            rred = 255; rgreen = 165; rblue = 0;
+                            break;
+                        case 8:
+                            rred = 128; rgreen = 0; rblue = 128;
+                            break;
+                        case 9:
+                            rred = 255; rgreen = 105; rblue = 180;
+                            break;
+                        case 10:
+                            rred = 50; rgreen = 205; rblue = 50;
+                            break;
+                    }
+                }
+
+                if (event.key.keysym.sym == SDLK_d && menu) {
+                    if (lcolorSelect > 10){
+                        lcolorSelect = 1;
+                    }
+                    else{
+                        lcolorSelect++;
+                    }
+                    switch (lcolorSelect) {
+                        case 1:
+                            lred = 0; lgreen = 0; lblue = 255;
+                            break;
+                        case 2:
+                            lred = 255; lgreen = 0; lblue = 0;
+                            break;
+                        case 3:
+                            lred = 0; lgreen = 255; lblue = 0;
+                            break;
+                        case 4:
+                            lred = 255; lgreen = 255; lblue = 0;
+                            break;
+                        case 5:
+                            lred = 0; lgreen = 255; lblue = 255;
+                            break;
+                        case 6:
+                            lred = 255; lgreen = 0; lblue = 255;
+                            break;
+                        case 7:
+                            lred = 255; lgreen = 165; lblue = 0;
+                            break;
+                        case 8:
+                            lred = 128; lgreen = 0; lblue = 128;
+                            break;
+                        case 9:
+                            lred = 255; lgreen = 105; lblue = 180;
+                            break;
+                        case 10:
+                            lred = 50; lgreen = 205; lblue = 50;
+                            break;
+                    }
+                }
+
+                if (event.key.keysym.sym == SDLK_a && menu) {
+                    if (lcolorSelect < 1) {
+                        lcolorSelect = 10;
+                    } else {
+                        lcolorSelect--;
+                    }
+                    switch (lcolorSelect) {
+                        case 1:
+                            lred = 0; lgreen = 0; lblue = 255;
+                            break;
+                        case 2:
+                            lred = 255; lgreen = 0; lblue = 0;
+                            break;
+                        case 3:
+                            lred = 0; lgreen = 255; lblue = 0;
+                            break;
+                        case 4:
+                            lred = 255; lgreen = 255; lblue = 0;
+                            break;
+                        case 5:
+                            lred = 0; lgreen = 255; lblue = 255;
+                            break;
+                        case 6:
+                            lred = 255; lgreen = 0; lblue = 255;
+                            break;
+                        case 7:
+                            lred = 255; lgreen = 165; lblue = 0;
+                            break;
+                        case 8:
+                            lred = 128; lgreen = 0; lblue = 128;
+                            break;
+                        case 9:
+                            lred = 255; lgreen = 105; lblue = 180;
+                            break;
+                        case 10:
+                            lred = 50; lgreen = 205; lblue = 50;
+                            break;
+                    }
+                }
+
+                if (event.key.keysym.sym == SDLK_ESCAPE && !menu){
+                    paused = true;
+                    menu = false;
+                    game = false;
+                }
+
+            }// buttons
+
+            if (event.type == SDL_MOUSEBUTTONDOWN && event.button.button == SDL_BUTTON_LEFT && menu){
+                int mouseX, mouseY;
+                SDL_GetMouseState(&mouseX, &mouseY);
+
+                if (mouseX > 350 && mouseX < 650 && mouseY > 305 && mouseY < 345){
+                    easy = true;
+                    medium = false;
+                    hard = false;
+                    killingYou = false;
+                    menu = false;
+                    game = true;
+                    paused = false;
+                    Mix_PlayChannel(-1, clickSound, 0);
+                }
+
+                if (mouseX > 350 && mouseX < 650 && mouseY > 355 && mouseY < 395){
+                    easy = false;
+                    medium = true;
+                    hard = false;
+                    killingYou = false;
+                    menu = false;
+                    game = true;
+                    paused = false;
+                    Mix_PlayChannel(-1, clickSound, 0);
+                }
+
+                if (mouseX > 350 && mouseX < 650 && mouseY > 405 && mouseY < 445){
+                    easy = false;
+                    medium = false;
+                    hard = true;
+                    killingYou = false;
+                    menu = false;
+                    game = true;
+                    paused = false;
+                    Mix_PlayChannel(-1, clickSound, 0);
+                }
+
+                if (mouseX > 350 && mouseX < 650 && mouseY > 455 && mouseY < 495){
+                    easy = false;
+                    medium = false;
+                    hard = false;
+                    killingYou = true;
+                    menu = false;
+                    game = true;
+                    paused = false;
+                    Mix_PlayChannel(-1, clickSound, 0);
+                }
+            }// clicks
+
+            if (event.type == SDL_MOUSEBUTTONDOWN && event.button.button == SDL_BUTTON_LEFT && paused){
+
+                SDL_Rect mainMenuButton = {400, 370, 200, 50};
+                int mouseX, mouseY;
+                SDL_GetMouseState(&mouseX, &mouseY);
+
+                if (mouseX > 400 && mouseX < 600 && mouseY > 300 && mouseY < 350){
+                    paused = false;
+                    game = true;
+                }
+
+                if (mouseX > 400 && mouseX < 600 && mouseY > 370 && mouseY < 420){
+                    paused = false;
+                    game = false;
+                    menu = true;
+                    lscore = 0;
+                    rscore = 0;
+                }
+            } // menu
+
+        }// pole event
+
+        if (menu){
+
+            if (Mix_PlayingMusic() == 0) {
+                Mix_PlayMusic(menuMusic, -1);
+            }
+
+            SDL_SetRenderDrawColor(renderer,0,0,0,255);
+            SDL_RenderClear(renderer);
+
+            SDL_SetRenderDrawColor(renderer, 0, 255, 0, 255);
+            SDL_Rect easy = {350, 305, 300, 40};
+            SDL_Rect medium = {350, 355, 300, 40};
+            SDL_Rect hard = {350, 405, 300, 40};
+            SDL_Rect killingYou = {350, 455, 300, 40};
+
+            SDL_Color white = {255, 255, 255, 255};
+
+            int mouseX, mouseY;
+            SDL_GetMouseState(&mouseX, &mouseY);
+
+            if (mouseX > easy.x && mouseX < easy.x + easy.w && mouseY > easy.y && mouseY < easy.y + easy.h) {
+                easy.x -= 10;
+                easy.y -= 5;
+                easy.w += 20;
+                easy.h += 10;
+                renderText("Easy", easy.x + 130, easy.y + 10, white, renderer, font);
+            }
+            else{
+                renderText("Easy", easy.x + 120, easy.y + 5, white, renderer, font);
+            }
+            SDL_RenderDrawRect(renderer, &easy);
+
+
+            if (mouseX > medium.x && mouseX < medium.x + medium.w && mouseY > medium.y && mouseY < medium.y + medium.h) {
+                medium.x -= 10;
+                medium.y -= 5;
+                medium.w += 20;
+                medium.h += 10;
+                renderText("Medium", medium.x + 120, medium.y + 10, white, renderer, font);
+            }
+            else{
+                renderText("Medium", medium.x + 110, medium.y + 5, white, renderer, font);
+            }
+            SDL_RenderDrawRect(renderer, &medium);
+
+
+            if (mouseX > hard.x && mouseX < hard.x + hard.w && mouseY > hard.y && mouseY < hard.y + hard.h) {
+                hard.x -= 10;
+                hard.y -= 5;
+                hard.w += 20;
+                hard.h += 10;
+                renderText("Hard", hard.x + 130, hard.y + 10, white, renderer, font);
+            }
+            else{
+                renderText("Hard", hard.x + 120, hard.y + 5, white, renderer, font);
+            }
+            SDL_RenderDrawRect(renderer, &hard);
+
+
+            if (mouseX > killingYou.x && mouseX < killingYou.x + killingYou.w && mouseY > killingYou.y && mouseY < killingYou.y + killingYou.h) {
+                killingYou.x -= 10;
+                killingYou.y -= 5;
+                killingYou.w += 20;
+                killingYou.h += 10;
+                renderText("Killing You", killingYou.x + 110, killingYou.y + 10, white, renderer, font);
+            }
+            else{
+                renderText("Killing You", killingYou.x + 100, killingYou.y + 5, white, renderer, font);
+            }
+            SDL_RenderDrawRect(renderer, &killingYou);
+
+
+
+            left(renderer);
+            right(renderer);
+            vx = 0;
+            vy = 0;
+            ball(renderer, hitSound, bounceSound);
+
+            const Uint8* state = SDL_GetKeyboardState(NULL);
+
+            if (state[SDL_SCANCODE_W] && y1 >= yourSpeed) {
+                y1 -= yourSpeed;
+            }
+
+            if (state[SDL_SCANCODE_S] && y1 <= 750 - hight - yourSpeed) {
+                y1 += yourSpeed;
+            }
+
+            if (state[SDL_SCANCODE_UP] && y2 >= yourSpeed) {
+                y2 -= yourSpeed;
+            }
+
+            if (state[SDL_SCANCODE_DOWN] && y2 <= 750 - hight - yourSpeed) {
+                y2 += yourSpeed;
+            }
+
+
+
+
+            SDL_RenderPresent(renderer);
+        }// menu
+
+        if (!menu) {
+            Mix_HaltMusic();
+        }
+
+        if (game){
+
+            if (easy) {
+                hight = 100;
+                radius = 30;
+                speed = 10;
+                yourSpeed = 10;
+                vx = (vx > 0) ? speed : -speed;
+                vy = (vy > 0) ? speed : -speed;
+            }
+
+            if (medium) {
+                hight = 100;
+                radius = 20;
+                speed = 10;
+                yourSpeed = 10;
+                vx = (vx > 0) ? speed : -speed;
+                vy = (vy > 0) ? speed : -speed;
+            }
+
+            if (hard) {
+                hight = 100;
+                radius = 15;
+                speed = 10;
+                yourSpeed = 15;
+                vx = (vx > 0) ? speed : -speed;
+                vy = (vy > 0) ? speed : -speed;
+                vm = (vm > 0) ? speed : -speed;
+
+            }
+
+            if (killingYou) {
+                hight = 70;
+                radius = 10;
+                speed = 10;
+                yourSpeed = 15;
+                vx = (vx > 0) ? speed : -speed;
+                vy = (vy > 0) ? speed : -speed;
+                vm = (vm > 0) ? speed : -speed;
+            }
+
+            const Uint8* state = SDL_GetKeyboardState(NULL);
+
+            if (state[SDL_SCANCODE_W] && y1 >= yourSpeed) {
+                y1 -= yourSpeed;
+            }
+
+            if (state[SDL_SCANCODE_S] && y1 <= 750 - hight - yourSpeed) {
+                y1 += yourSpeed;
+            }
+
+            if (state[SDL_SCANCODE_UP] && y2 >= yourSpeed) {
+                y2 -= yourSpeed;
+            }
+
+            if (state[SDL_SCANCODE_DOWN] && y2 <= 750 - hight - yourSpeed) {
+                y2 += yourSpeed;
+            }
+
+            SDL_SetRenderDrawColor(renderer,0,0,0,255);
+            SDL_RenderClear(renderer);
+
+            left(renderer);
+            right(renderer);
+            if (hard || killingYou){middle(renderer);};
+            if (rscore < 10 && lscore < 10){
+                ball(renderer, hitSound, bounceSound);
+            }
+
+            SDL_Color white = {255, 255, 255, 255};
+            string lscoreText = to_string(lscore);
+            string rscoreText = to_string(rscore);
+
+            renderText(lscoreText.c_str(), 100, 50, white, renderer, font);
+            renderText(rscoreText.c_str(), 890, 50, white, renderer, font);
+
+            SDL_RenderPresent(renderer);
+
+            if (lscore == 10 || rscore == 10){
+                game = false;
+                win = true;
+            }// win
+        } // game
+
+        if (paused) {
+            SDL_SetRenderDrawColor(renderer, 0, 0, 0, 255);
+            SDL_RenderClear(renderer);
+
+            left(renderer);
+            right(renderer);
+
+            drawBall(renderer, ballx, bally, radius);
+
+            if (hard || killingYou){
+                SDL_SetRenderDrawColor(renderer, mred, mgreen, mblue, 255);
+                SDL_Rect rect = {x3, y3, width, mhight};
+                SDL_RenderFillRect(renderer, &rect);
+            };
+
+            SDL_Rect resume = {400, 300, 200, 50};
+            SDL_Rect mainMenu = {400, 370, 200, 50};
+            SDL_Color black = {0, 0, 0, 255};
+
+            int mouseX, mouseY;
+            SDL_GetMouseState(&mouseX, &mouseY);
+
+            SDL_Rect resumeHover = resume;
+            SDL_Rect mainMenuHover = mainMenu;
+
+            if (mouseX > resume.x && mouseX < resume.x + resume.w && mouseY > resume.y && mouseY < resume.y + resume.h) {
+                resumeHover.x -= 10;
+                resumeHover.y -= 5;
+                resumeHover.w += 20;
+                resumeHover.h += 10;
+            }
+
+            if (mouseX > mainMenu.x && mouseX < mainMenu.x + mainMenu.w && mouseY > mainMenu.y && mouseY < mainMenu.y + mainMenu.h) {
+                mainMenuHover.x -= 10;
+                mainMenuHover.y -= 5;
+                mainMenuHover.w += 20;
+                mainMenuHover.h += 10;
+            }
+
+            SDL_SetRenderDrawColor(renderer, 200, 200, 200, 255);
+            SDL_RenderFillRect(renderer, &resumeHover);
+            SDL_RenderFillRect(renderer, &mainMenuHover);
+
+            renderText("Resume", resume.x + 55, resume.y + 10, black, renderer, font);
+            renderText("Main Menu", mainMenu.x + 40, mainMenu.y + 10, black, renderer, font);
+
+            SDL_Color white = {255, 255, 255, 255};
+            string lscoreText = to_string(lscore);
+            string rscoreText = to_string(rscore);
+
+            renderText(lscoreText.c_str(), 100, 50, white, renderer, font);
+            renderText(rscoreText.c_str(), 890, 50, white, renderer, font);
+
+            SDL_RenderPresent(renderer);
+        }// paused
+
+        if (win){
+            if (rscore == 10){
+                SDL_SetRenderDrawColor(renderer, 0, 255, 0, 255);
+                SDL_Rect rRect = {700, 355, 200, 40};
+                SDL_RenderFillRect(renderer, &rRect);
+
+                SDL_SetRenderDrawColor(renderer, 255, 0, 0, 255);
+                SDL_Rect lRect = {100, 355, 200, 40};
+                SDL_RenderFillRect(renderer, &lRect);
+
+                SDL_Color white = {255, 255, 255, 255};
+                renderText("YOU WON!", 740, 362, white, renderer, font);
+                renderText("YOU LOST!", 140, 362, white, renderer, font);
+            }
+            else{
+                SDL_SetRenderDrawColor(renderer, 0, 255, 0, 255);
+                SDL_Rect rRect = {700, 355, 200, 40};
+                SDL_RenderFillRect(renderer, &rRect);
+
+                SDL_SetRenderDrawColor(renderer, 255, 0, 0, 255);
+                SDL_Rect lRect = {100, 355, 200, 40};
+                SDL_RenderFillRect(renderer, &lRect);
+
+                SDL_Color white = {255, 255, 255, 255};
+                renderText("YOU WON!", 740, 362, white, renderer, font);
+                renderText("YOU LOST!", 140, 362, white, renderer, font);
+            }
+
+            Mix_PlayChannel(-1, winSound, 0);
+            SDL_RenderPresent(renderer);
+        }
+
+
+        SDL_Delay(16);
+    }// running
+
+    Mix_FreeMusic(menuMusic);
+    TTF_CloseFont(font);
+    SDL_DestroyRenderer(renderer);
+    SDL_DestroyWindow(window);
+    Mix_CloseAudio();
+    TTF_Quit();
+    SDL_Quit();
+
+}// main
